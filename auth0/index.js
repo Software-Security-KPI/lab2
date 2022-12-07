@@ -1,4 +1,5 @@
 const request = require('request');
+
 require('dotenv').config();
 
 const getTokenOptions = {
@@ -14,36 +15,87 @@ const getTokenOptions = {
     }
 };
 
-const createUserOptions = (token) => {
-    return {
-        method: 'POST',
-        url: `https://${process.env.AUTH0_DOMAIN}/api/v2/users`,
-        headers: { 
-            'content-type': 'application/json', 
-            'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-            'email': 'john.doe2@gmail.com',
-            'given_name': 'John',
-            'family_name': 'Doe',
-            'name': 'John Doe',
-            'nickname': 'Johnny',
-            'picture': 'https://secure.gravatar.com/avatar/15626c5e0c749cb912f9d1ad48dba440?s=480&r=pg&d=https%3A%2F%2Fssl.gstatic.com%2Fs2%2Fprofiles%2Fimages%2Fsilhouette80.png',
-            'connection': 'Username-Password-Authentication',
-            'password': 'P4ssW0rd'
-        })
+const getUserTokenOptions = {
+    method: 'POST',
+    url: `https://${process.env.AUTH0_DOMAIN}/oauth/token`,
+    headers: { 
+        'content-type': 'application/x-www-form-urlencoded'
+    },
+    form:
+    { 
+        grant_type: 'password',
+        username: 'john.doe@gmail.com',
+        password: 'P4ssW0rd',
+        audience: process.env.AUTH0_AUDIENCE,
+        scope: 'offline_access',
+        client_id: process.env.AUTH0_CLIENT_ID,
+        client_secret: process.env.AUTH0_CLIENT_SECRET 
     }
 };
 
-request(getTokenOptions, (error, response, body) => {
+const updateUserTokenOptions = (refreshToken) => {
+    return {
+        method: 'POST',
+        url: `https://${process.env.AUTH0_DOMAIN}/oauth/token`,
+        headers: {
+            'content-type': 'application/x-www-form-urlencoded'
+        },
+        form:
+        { 
+            grant_type: 'refresh_token',
+            client_id: process.env.AUTH0_CLIENT_ID,
+            client_secret: process.env.AUTH0_CLIENT_SECRET,
+            refresh_token: refreshToken
+        }
+    };
+}
+
+const changeUserPasswordOptions = (token) => {
+    return {
+        method: 'PATCH',
+        url: `https://${process.env.AUTH0_DOMAIN}/api/v2/users/auth0|638cd9339b0c438142ecfa8c`,
+        headers: {
+          'content-type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+            password: 'Pa$$w0rd',
+            connection: 'Username-Password-Authentication'
+        })
+    };    
+};
+
+request(getUserTokenOptions, (error, response, body) => {
+    console.log(error);
     if (error) throw new Error(error);
 
-    const token = JSON.parse(body).access_token;
-    console.log(token);
+    console.log(JSON.parse(body));
+    console.log('========================');
 
-    request(createUserOptions(token), (error, response, body) => {
+    const refreshToken = JSON.parse(body).refresh_token;
+
+    request(updateUserTokenOptions(refreshToken), (error, response, body) => {
         if (error) throw new Error(error);
-
-        console.log(body);
+    
+        console.log(JSON.parse(body));
+        console.log('========================');
     });
 });
+
+setTimeout(() => {
+    request(getTokenOptions, (error, response, body) => {
+        if (error) throw new Error(error);
+    
+        const accessToken = JSON.parse(body).access_token;
+    
+        console.log(JSON.parse(body));
+        console.log('========================');
+    
+        request(changeUserPasswordOptions(accessToken), (error, response, body) => {
+            if (error) throw new Error(error);
+        
+            console.log(JSON.parse(body));
+            console.log('========================');
+        });
+    });
+}, 5000);
